@@ -1,6 +1,6 @@
 {
   "name": "@getinsomnia/node-libcurl",
-  "version": "3.3.0",
+  "version": "3.3.1-insomnium.0",
   "description": "The fastest http(s) client (and much more) for Node.js - Node.js bindings for libcurl",
   "keywords": [
     "node-curl",
@@ -27,7 +27,7 @@
     "module_path": "./lib/binding/",
     "remote_path": "./v{version}/",
     "package_name": "{module_name}-v{version}-{node_abi}-{platform}-{arch}-{libc}.tar.gz",
-    "host": "https://github.com/Kong/node-libcurl/releases/download"
+    "host": "https://github.com/yokomohoyo/node-libcurl/releases/download"
   },
   "scripts": {
     "ae": "api-extractor run --local --verbose",
@@ -59,7 +59,7 @@
   "dependencies": {
     "@mapbox/node-pre-gyp": "2.0.3",
     "env-paths": "2.2.0",
-    "nan": "2.28.0",
+    "nan": "2.29.0",
     "node-gyp": "12.2.0",
     "rimraf": "^3.0.2",
     "tslib": "2.0.1",
