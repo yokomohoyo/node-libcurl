@@ -25,7 +25,7 @@ jobs:
       node-libcurl-cpp-std: ${{ env.NODE_LIBCURL_CPP_STD }}
       electron-config-cache: ${{ env.electron_config_cache }}
     env:
-      LATEST_LIBCURL_RELEASE: 8.17.0
+      LATEST_LIBCURL_RELEASE: 8.23.0
       OLDEST_LIBCURL_RELEASE: 7.81.0
       NODE_LIBCURL_CPP_STD: c++20
       electron_config_cache: ~/.cache/electron
