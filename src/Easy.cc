@@ -31,6 +31,18 @@
 
 #define TIME_IN_THE_FUTURE "30001231 23:59:59"
 
+// Insomnium: declared here rather than including OpenSSL's headers, since the
+// include path also has Node's or Electron's (BoringSSL) headers. This has to
+// bind to the OpenSSL libcurl is built with. Signature as of OpenSSL 3.
+extern "C" {
+typedef struct ssl_ctx_st SSL_CTX;
+uint64_t SSL_CTX_set_options(SSL_CTX* ctx, uint64_t op);
+}
+
+// SSL_OP_LEGACY_SERVER_CONNECT | SSL_OP_ALLOW_UNSAFE_LEGACY_RENEGOTIATION |
+// SSL_OP_IGNORE_UNEXPECTED_EOF
+constexpr uint64_t LEGACY_TLS_OPTIONS = 0x4 | 0x40000 | 0x80;
+
 namespace NodeLibcurl {
 
 // Static member initialization
@@ -86,6 +98,9 @@ Easy::Easy(const Napi::CallbackInfo& info)
       this->ch = curl_easy_duphandle(orig->ch);
       assert(this->ch && "Failed to duplicate libcurl easy handle");
 
+      // duphandle copies the pointer to orig's CURLU, which orig owns and may free first
+      curl_easy_setopt(this->ch, CURLOPT_CURLU, nullptr);
+
       this->CopyOtherData(orig);
 
     } else if (info[0].IsExternal()) {
@@ -125,6 +140,11 @@ Easy::Easy(const Napi::CallbackInfo& info)
 
   curl->AdjustHandleMemory(CURL_HANDLE_TYPE_EASY, 1);
 
+  this->url = curl_url();
+  if (!this->url) {
+    throw CurlError::New(env, "Could not initialize libcurl URL handle.", CURLE_OUT_OF_MEMORY);
+  }
+
   // Common setup for all constructor modes
   this->ResetRequiredHandleOptions(isFromDuplicate);
 }
@@ -147,6 +167,10 @@ void Easy::Dispose() {
   curl_easy_cleanup(this->ch);
   this->ch = nullptr;
   this->isOpen = false;
+
+  // after the easy handle, which may still point at it
+  curl_url_cleanup(this->url);
+  this->url = nullptr;
 
   const auto curl = this->Env().GetInstanceData<Curl>();
   curl->AdjustHandleMemory(CURL_HANDLE_TYPE_EASY, -1);
@@ -225,6 +249,11 @@ void Easy::ResetRequiredHandleOptions(bool isFromDuplicate) {
     curl_easy_setopt(this->ch, CURLOPT_CAINFO_BLOB, &curl->caCertificatesBlob);
   }
 #endif
+
+  if (this->legacyTls) {
+    curl_easy_setopt(this->ch, CURLOPT_SSL_CTX_FUNCTION, Easy::SslCtxFunction);
+    curl_easy_setopt(this->ch, CURLOPT_SSL_CTX_DATA, this);
+  }
 }
 
 void Easy::CopyOtherData(Easy* orig) {
@@ -243,6 +272,36 @@ void Easy::CopyOtherData(Easy* orig) {
 
   // Copy shared ToFree data
   this->toFree = orig->toFree;
+
+  this->urlData = orig->urlData;
+  this->hasUrlData = orig->hasUrlData;
+  this->pathAsIs = orig->pathAsIs;
+  this->legacyTls = orig->legacyTls;
+}
+
+// Insomnium: parse the URL with curl's URL API so it may contain raw spaces
+// (requests sent with URL encoding turned off) and keep PATH_AS_IS. If it
+// doesn't parse, curl falls back to CURLOPT_URL and reports its usual error.
+void Easy::ApplyUrl() {
+  if (!this->hasUrlData || !this->url) {
+    return;
+  }
+
+  unsigned int flags = CURLU_ALLOW_SPACE | (this->pathAsIs ? CURLU_PATH_AS_IS : 0);
+
+  if (curl_url_set(this->url, CURLUPART_URL, this->urlData.c_str(), flags) == CURLUE_OK) {
+    curl_easy_setopt(this->ch, CURLOPT_CURLU, this->url);
+  } else {
+    curl_easy_setopt(this->ch, CURLOPT_CURLU, nullptr);
+  }
+}
+
+// Insomnium: OpenSSL options for old servers, opt-in per handle.
+CURLcode Easy::SslCtxFunction(CURL* curl, void* sslctx, void* userdata) {
+  (void)curl;
+  (void)userdata;
+  SSL_CTX_set_options(static_cast<SSL_CTX*>(sslctx), LEGACY_TLS_OPTIONS);
+  return CURLE_OK;
 }
 
 void Easy::CallSocketEvent(int status, int events) {
@@ -352,6 +411,7 @@ Napi::Function Easy::Init(Napi::Env env, Napi::Object exports) {
       {// Instance methods
        InstanceMethod("debugLog", &Easy::DebugLog), InstanceMethod("getInfo", &Easy::GetInfo),
        InstanceMethod("setOpt", &Easy::SetOpt), InstanceMethod("getInfo", &Easy::GetInfo),
+       InstanceMethod("setLegacyTls", &Easy::SetLegacyTls),
        InstanceMethod("send", &Easy::Send), InstanceMethod("recv", &Easy::Recv),
        InstanceMethod("wsRecv", &Easy::WsRecv), InstanceMethod("wsSend", &Easy::WsSend),
        InstanceMethod("wsMeta", &Easy::WsMeta), InstanceMethod("wsStartFrame", &Easy::WsStartFrame),
@@ -662,6 +722,11 @@ Napi::Value Easy::SetOpt(const Napi::CallbackInfo& info) {
     // check if option is string, and the value is correct
   } else if ((optionId = IsInsideCurlConstantStruct(curlOptionString, opt))) {
     if (value.IsNull()) {
+      if (static_cast<CURLoption>(optionId) == CURLOPT_URL) {
+        this->urlData.clear();
+        this->hasUrlData = false;
+        curl_easy_setopt(this->ch, CURLOPT_CURLU, nullptr);
+      }
       setOptRetCode = curl_easy_setopt(this->ch, static_cast<CURLoption>(optionId), NULL);
     } else {
       if (!value.IsString()) {
@@ -669,6 +734,12 @@ Napi::Value Easy::SetOpt(const Napi::CallbackInfo& info) {
       }
 
       std::string valueStr = value.As<Napi::String>().Utf8Value();
+
+      // also stored for ApplyUrl
+      if (static_cast<CURLoption>(optionId) == CURLOPT_URL) {
+        this->urlData = valueStr;
+        this->hasUrlData = true;
+      }
 
       // libcurl makes a copy of the strings after version 7.17, CURLOPT_POSTFIELD
       // is the only exception
@@ -729,6 +800,12 @@ Napi::Value Easy::SetOpt(const Napi::CallbackInfo& info) {
       case CURLOPT_READDATA:
         this->readDataFileDescriptor = valueNumber.Int32Value();
         setOptRetCode = CURLE_OK;
+        break;
+      // also needed when ApplyUrl parses the URL
+      case CURLOPT_PATH_AS_IS:
+        this->pathAsIs = valueNumber.Int32Value() != 0;
+        setOptRetCode = curl_easy_setopt(this->ch, CURLOPT_PATH_AS_IS,
+                                         static_cast<long>(valueNumber.Int32Value()));
         break;
       default:
         setOptRetCode = curl_easy_setopt(this->ch, static_cast<CURLoption>(optionId),
@@ -1120,6 +1197,8 @@ Napi::Value Easy::Perform(const Napi::CallbackInfo& info) {
 
   NODE_LIBCURL_DEBUG_LOG(this, "Easy::Perform", "performing request");
 
+  this->ApplyUrl();
+
   LocaleGuard localeGuard;
   CURLcode code = curl_easy_perform(this->ch);
 
@@ -1146,9 +1225,43 @@ Napi::Value Easy::Reset(const Napi::CallbackInfo& info) {
   // the above will reset toFree, thus we need to recreate it
   this->toFree = std::make_shared<Easy::ToFree>();
 
+  this->urlData.clear();
+  this->hasUrlData = false;
+  this->pathAsIs = false;
+  this->legacyTls = false;
+
   this->ResetRequiredHandleOptions(false);
 
   return info.This();
+}
+
+// Insomnium: turn on OpenSSL options some old servers need (unsafe legacy
+// renegotiation, servers closing without close_notify). They weaken TLS, so
+// they're off unless asked for, and the connection isn't reused afterwards.
+Napi::Value Easy::SetLegacyTls(const Napi::CallbackInfo& info) {
+  Napi::Env env = info.Env();
+
+  if (!this->isOpen) {
+    throw CurlError::New(env, "Curl handle is closed.", CURLE_BAD_FUNCTION_ARGUMENT);
+  }
+
+  if (info.Length() < 1 || !info[0].IsBoolean()) {
+    throw Napi::TypeError::New(env, "Argument must be a boolean.");
+  }
+
+  bool enabled = info[0].As<Napi::Boolean>().Value();
+  CURLcode code = curl_easy_setopt(this->ch, CURLOPT_SSL_CTX_FUNCTION,
+                                   enabled ? Easy::SslCtxFunction : nullptr);
+
+  if (code == CURLE_OK) {
+    this->legacyTls = enabled;
+    curl_easy_setopt(this->ch, CURLOPT_SSL_CTX_DATA, this);
+    if (enabled) {
+      curl_easy_setopt(this->ch, CURLOPT_FORBID_REUSE, 1L);
+    }
+  }
+
+  return Napi::Number::New(env, static_cast<int>(code));
 }
 
 Napi::Value Easy::Close(const Napi::CallbackInfo& info) {

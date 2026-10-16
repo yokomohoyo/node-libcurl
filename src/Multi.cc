@@ -329,6 +329,7 @@ Napi::Value Multi::AddHandle(const Napi::CallbackInfo& info) {
 
   // Check comment on node_libcurl.cc
   LocaleGuard localeGuard;
+  easy->ApplyUrl();
   CURLMcode code = curl_multi_add_handle(this->mh, easy->ch);
 
   if (code != CURLM_OK) {
@@ -418,6 +419,7 @@ Napi::Value Multi::Perform(const Napi::CallbackInfo& info) {
 
   // Check comment on node_libcurl.cc
   LocaleGuard localeGuard;
+  easy->ApplyUrl();
   CURLMcode code = curl_multi_add_handle(this->mh, easy->ch);
 
   if (code != CURLM_OK) {

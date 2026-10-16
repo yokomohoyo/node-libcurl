@@ -661,6 +661,13 @@ declare class Easy {
   dupHandle(): Easy
 
   /**
+   * Insomnium: turns on OpenSSL options some old servers need (unsafe legacy
+   * renegotiation, servers that close without close_notify). They weaken TLS,
+   * so they're off by default, and the connection isn't reused afterwards.
+   */
+  setLegacyTls(enabled: boolean): CurlCode
+
+  /**
    * This method is only useful when the internal polling of the connection socket is enabled by calling
    *  {@link monitorSocketEvents | `monitorSocketEvents`}.
    *

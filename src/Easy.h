@@ -15,6 +15,7 @@
 #include <map>
 #include <memory>
 #include <napi.h>
+#include <string>
 #include <uv.h>
 #include <vector>
 
@@ -50,6 +51,10 @@ class Easy : public Napi::ObjectWrap<Easy> {
   Napi::Value MonitorSocketEvents(const Napi::CallbackInfo& info);
   Napi::Value UnmonitorSocketEvents(const Napi::CallbackInfo& info);
   Napi::Value Close(const Napi::CallbackInfo& info);
+  Napi::Value SetLegacyTls(const Napi::CallbackInfo& info);
+
+  // Hands the stored URL to libcurl right before a transfer, see Easy.cc.
+  void ApplyUrl();
 
   static Napi::Value StrError(const Napi::CallbackInfo& info);
 
@@ -119,6 +124,13 @@ class Easy : public Napi::ObjectWrap<Easy> {
   std::vector<Napi::Reference<Napi::Object>> hstsReadCache;
   bool wasHstsReadCacheSet = false;
 
+  // Insomnium: URL kept for ApplyUrl, plus the opt-in legacy TLS flag
+  CURLU* url = nullptr;
+  std::string urlData;
+  bool hasUrlData = false;
+  bool pathAsIs = false;
+  bool legacyTls = false;
+
   // Static members
   static std::atomic<uint64_t> nextId;
 
@@ -142,6 +154,7 @@ class Easy : public Napi::ObjectWrap<Easy> {
   static int CbTrailer(struct curl_slist** headerList, void* userdata);
   static size_t CbInterleave(void* ptr, size_t size, size_t nmemb, void* userdata);
   static int CbSshHostKey(void* clientp, int keytype, const char* key, size_t keylen);
+  static CURLcode SslCtxFunction(CURL* curl, void* sslctx, void* userdata);
 
   // libuv callbacks
   static void OnSocket(uv_poll_t* handle, int status, int events);

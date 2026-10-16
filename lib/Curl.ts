@@ -847,6 +847,19 @@ class Curl extends EventEmitter {
   }
 
   /**
+   * Insomnium: see {@link Easy.setLegacyTls | `Easy#setLegacyTls`}.
+   */
+  setLegacyTls(enabled: boolean) {
+    const code = this.handle.setLegacyTls(enabled)
+
+    if (code !== CurlCode.CURLE_OK) {
+      throw new Error(Easy.strError(code))
+    }
+
+    return this
+  }
+
+  /**
    * Duplicate this handle with all their options.
    * Keep in mind that, by default, this also means all event listeners.
    *
