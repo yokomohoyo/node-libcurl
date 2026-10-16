@@ -28,10 +28,14 @@ describe('insomnium additions', () => {
     rawServer = net.createServer((socket) => {
       socket.once('data', (chunk) => {
         requestLines.push(chunk.toString('latin1').split('\r\n')[0])
-        socket.end('HTTP/1.1 200 OK\r\nContent-Length: 0\r\nConnection: close\r\n\r\n')
+        socket.end(
+          'HTTP/1.1 200 OK\r\nContent-Length: 0\r\nConnection: close\r\n\r\n',
+        )
       })
     })
-    await new Promise<void>((resolve) => rawServer.listen(0, '127.0.0.1', resolve))
+    await new Promise<void>((resolve) =>
+      rawServer.listen(0, '127.0.0.1', resolve),
+    )
     rawUrl = `http://127.0.0.1:${(rawServer.address() as net.AddressInfo).port}`
   })
 
@@ -45,7 +49,9 @@ describe('insomnium additions', () => {
     const curl = new Curl()
     curl.setOpt('URL', `${rawUrl}/a b?x=1 2`)
     expect(await send(curl)).toBe(200)
-    expect(lastRequestLine()).toMatch(/^GET \/a( |%20)b\?x=1( |%20)2 HTTP\/1\.1$/)
+    expect(lastRequestLine()).toMatch(
+      /^GET \/a( |%20)b\?x=1( |%20)2 HTTP\/1\.1$/,
+    )
     curl.close()
   })
 
@@ -78,14 +84,18 @@ describe('insomnium additions', () => {
     const curl = new Curl()
     curl.setOpt('URL', `${rawUrl}/before-reset`)
     curl.reset()
-    await expect(send(curl)).rejects.toMatchObject({ code: CurlCode.CURLE_URL_MALFORMAT })
+    await expect(send(curl)).rejects.toMatchObject({
+      code: CurlCode.CURLE_URL_MALFORMAT,
+    })
     curl.close()
   })
 
   it('still reports malformed URLs with the usual error', async () => {
     const curl = new Curl()
     curl.setOpt('URL', 'http://[::1')
-    await expect(send(curl)).rejects.toMatchObject({ code: CurlCode.CURLE_URL_MALFORMAT })
+    await expect(send(curl)).rejects.toMatchObject({
+      code: CurlCode.CURLE_URL_MALFORMAT,
+    })
     curl.close()
   })
 
