@@ -20,7 +20,7 @@ on:
         required: true
 
 env:
-  NODE_LIBCURL_GITHUB_TOKEN: ${{ secrets.NODE_LIBCURL_GITHUB_TOKEN }}
+  NODE_LIBCURL_GITHUB_TOKEN: ${{ secrets.NODE_LIBCURL_GITHUB_TOKEN || github.token }}
 
 concurrency:
   group: build-and-release-${{ github.ref_name }}
@@ -50,40 +50,20 @@ jobs:
     strategy:
       fail-fast: false
       matrix:
+        # Insomnium only loads this in Electron, on the platforms it ships.
+        # The addon is N-API, so a build works across Electron versions; these
+        # are the asset names node-pre-gyp looks up for each .npmrc target.
         electron-version:
-          - ''
+          - 43.2.0
+          - 45.0.0-beta.3
         os:
           - macos-15
           - ubuntu-22.04
-          - ubuntu-24.04-arm
-          - alpine
           - windows-2025
         libcurl-release:
           - ${{ needs.config.outputs.latest-libcurl-release }}
         node:
-          - 26
-          - 25
           - 24
-          - 22
-        include:
-          - electron-version: 38.6.0
-            os: macos-15
-            node: 24
-          - electron-version: 38.6.0
-            os: ubuntu-22.04
-            node: 24
-          - electron-version: 38.6.0
-            os: windows-2025
-            node: 24
-          - electron-version: 39.1.1
-            os: macos-15
-            node: 24
-          - electron-version: 39.1.1
-            os: ubuntu-22.04
-            node: 24
-          - electron-version: 39.1.1
-            os: windows-2025
-            node: 24
     env:
       LIBCURL_RELEASE: ${{ matrix.libcurl-release }}
       LATEST_LIBCURL_RELEASE: ${{ matrix.libcurl-release }}

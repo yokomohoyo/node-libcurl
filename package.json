@@ -1,6 +1,6 @@
 {
   "name": "node-libcurl",
-  "version": "5.1.2",
+  "version": "5.1.2-insomnium.0",
   "description": "The fastest http(s) client (and much more) for Node.js - Node.js bindings for libcurl",
   "keywords": [
     "node-curl",
@@ -37,7 +37,7 @@
     "module_path": "./lib/binding/",
     "remote_path": "./v{version}/",
     "package_name": "{module_name}-v{version}-{node_abi}-{platform}-{arch}-{libc}.tar.gz",
-    "host": "https://github.com/JCMais/node-libcurl/releases/download"
+    "host": "https://github.com/yokomohoyo/node-libcurl/releases/download"
   },
   "scripts": {
     "ae": "api-extractor run --local --verbose",
