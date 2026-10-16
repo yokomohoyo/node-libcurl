@@ -18,7 +18,7 @@ fi
 
 if [ ! -d $2/source/$1 ]; then
   $curr_dirname/download-and-unpack.sh \
-    http://gpl.savoirfairelinux.net/pub/mirrors/openldap/openldap-release/openldap-$1.tgz $2
+    https://www.openldap.org/software/download/OpenLDAP/openldap-release/openldap-$1.tgz $2
 
   mv $2/openldap-$1 $2/source/$1
   cd $2/source/$1

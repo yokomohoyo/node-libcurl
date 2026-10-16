@@ -22,7 +22,9 @@ if [ ! -d $2/source/$1 ]; then
   git_version_full=$(echo $1 | sed -E 's/([0-9]+\.[0-9]+\.[0-9]+)[.-].*/\1/')
   git_version_major_minor=$(echo $git_version_full | sed -E 's/([0-9]+\.[0-9]+).*/\1/')
 
-  $curr_dirname/download-and-unpack.sh https://github.com/madler/zlib/archive/v$1.tar.gz $2 || \
+  # The release asset first: GitHub's generated tag archives can 404 for older tags.
+  $curr_dirname/download-and-unpack.sh https://github.com/madler/zlib/releases/download/v${git_version_full}/zlib-${git_version_full}.tar.gz $2 || \
+    $curr_dirname/download-and-unpack.sh https://github.com/madler/zlib/archive/v$1.tar.gz $2 || \
     $curr_dirname/download-and-unpack.sh https://github.com/madler/zlib/archive/v${git_version_full}.tar.gz $2 || \
     $curr_dirname/download-and-unpack.sh https://github.com/madler/zlib/archive/v${git_version_major_minor}.tar.gz $2
 
