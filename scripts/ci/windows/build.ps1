@@ -48,7 +48,7 @@ try {
 # Git is used for a couple of steps
 Write-Host "Git Check..." -ForegroundColor Blue
 try {
-    # vcpkg will be set up by the preinstall script
+    # vcpkg will be set up by the install script (building from source)
     # Just verify git is available for vcpkg bootstrap
     $gitVersion = git --version
     Write-Host "Git version: $gitVersion" -ForegroundColor Cyan
@@ -99,7 +99,7 @@ if (-not $env:PUBLISH_BINARY) {
     Write-Host "Binary publish setting overridden via environment variable: $env:PUBLISH_BINARY" -ForegroundColor Cyan
 }
 
-# Note: vcpkg setup will be handled by the preinstall script in package.json
+# Note: vcpkg setup will be handled by the install script (scripts/install.js)
 # No need for git submodules or Python configuration anymore
 
 # Set up build environment variables

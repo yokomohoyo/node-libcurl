@@ -1,6 +1,6 @@
 {
   "name": "node-libcurl",
-  "version": "5.1.2-insomnium.2",
+  "version": "5.1.2-insomnium.3",
   "description": "The fastest http(s) client (and much more) for Node.js - Node.js bindings for libcurl",
   "keywords": [
     "node-curl",
@@ -51,8 +51,7 @@
     "gen:compile_commands": "node-pre-gyp configure -- -f compile_commands_json && cp ./build/Debug/compile_commands.json ./compile_commands.json",
     "gen:constants": "node scripts/build-constants.js",
     "gen:docs": "typedoc",
-    "preinstall": "node scripts/vcpkg-setup.js",
-    "install": "node-pre-gyp install --fallback-to-build",
+    "install": "node scripts/install.js",
     "postinstall": "node scripts/postinstall",
     "lint": "eslint lib/ scripts/ test/ examples/",
     "pregyp": "node-pre-gyp",
